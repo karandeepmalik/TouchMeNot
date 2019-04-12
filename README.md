@@ -1,2 +1,2 @@
 # Mobile-App-Dev
-A respositors for Mobile App Dev work
+A respository for Mobile App Dev work
