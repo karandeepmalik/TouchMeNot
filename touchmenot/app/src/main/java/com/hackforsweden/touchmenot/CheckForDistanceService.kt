@@ -1,53 +1,63 @@
 package com.hackforsweden.touchmenot
 
-import android.Manifest
+
 import android.app.*
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.content.pm.PackageManager
+import android.content.*
 import android.graphics.Color
-import android.os.Build
-import android.os.IBinder
-import android.os.PowerManager
-import android.text.method.LinkMovementMethod
+import android.media.AudioAttributes
+import android.media.MediaPlayer
+import android.media.RingtoneManager
+import android.net.Uri
+import android.net.wifi.WifiManager
+import android.os.*
 import android.util.Log
-import android.view.View
-import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
+import androidx.annotation.RequiresApi
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
+import com.cueaudio.engine.CUEEngine
+import com.cueaudio.engine.CUEReceiverCallbackInterface
+import com.cueaudio.engine.CUETrigger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import androidx.core.app.ActivityCompat
-import androidx.core.content.ContextCompat
-import android.content.DialogInterface
-import android.text.Html
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import com.hackforsweden.touchmenot.MainActivity
+import java.util.*
+import kotlin.math.pow
 
 
 class CheckForDistanceService : Service() {
 
+    companion object{
+        private var isIndoor = true
+    }
+
     private var wakeLock: PowerManager.WakeLock? = null
-    private var deviceItemList = ArrayList<DeviceItem>()
     private var isServiceStarted = false
-    private var devicePowerMap = HashMap<String,Double>()
     private var bluetoothAdapter: BluetoothAdapter? = null
-    private val notificationChannelId = "CheckForDistanceService CHANNEL"
+    private val notificationChannelId = "CheckForDistance"
+    private var  firstOffset=7
+    private var secondOffset:Int =0
+    private var thirdOffset:Int =0
+    private var uniqueId:String? =null
+
+
+    private var API_KEY = "EH0GHbslb0pNWAxPf57qA6n23w4Zgu5U";
     override fun onBind(intent: Intent): IBinder? {
         // We don't provide binding, so return null
         return null
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent != null) {
-            startService()
+        if (intent != null) { val action = intent.action
+            log("using an intent with action $action")
+            when (action) {
+                Actions.START.name -> startService()
+                Actions.STOP.name -> stopService()
+                else -> log("This should never happen. No action in the received intent")
+            }
 
         } else {
 
@@ -67,6 +77,8 @@ class CheckForDistanceService : Service() {
         super.onDestroy()
         log("The service has been destroyed".toUpperCase())
         Toast.makeText(this, "Service destroyed", Toast.LENGTH_SHORT).show()
+
+
     }
 
     private fun startService() {
@@ -74,7 +86,7 @@ class CheckForDistanceService : Service() {
         log("Starting the foreground service task")
         Toast.makeText(this, "Service starting its task", Toast.LENGTH_SHORT).show()
         isServiceStarted = true
-        populateDevicePowerMap()
+        //populateDevicePowerMap()
         // we need this lock so our service gets not affected by Doze Mode
         wakeLock =
             (getSystemService(Context.POWER_SERVICE) as PowerManager).run {
@@ -83,19 +95,30 @@ class CheckForDistanceService : Service() {
                 }
             }
 
+        setupUltrasound();
+
+
         // we're starting a loop in a coroutine
         GlobalScope.launch(Dispatchers.IO) {
             while (isServiceStarted) {
+
                 launch(Dispatchers.IO) {
-                    detectBluetoothDevices()
+                    if(isIndoor)
+                        detectBluetoothDevices()
+                    else
+                        triggerTransmission()
+
+                    checkUserLocation();
                     //getRSSI
                     //calculate Distance
                     // sendNotification
                 }
-                delay(30000)
+                delay(10000)
             }
             log("End of the loop for the service")
         }
+        // we're starting a loop in a coroutine
+
     }
 
     private fun stopService() {
@@ -118,24 +141,33 @@ class CheckForDistanceService : Service() {
 
 
     private fun createNotification(): Notification {
-
-
         // depending on the Android API that we're dealing with we will have
         // to use a specific method to create the notification
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager;
+
+            val uri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE
+                    + "://" + packageName + "/raw/alarm");
+            // Creating an Audio Attribute
+            val audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .build()
             val channel = NotificationChannel(
                 notificationChannelId,
-                "Endless Service notifications channel",
+                "Service notifications channel",
                 NotificationManager.IMPORTANCE_HIGH
             ).let {
-                it.description = "Endless Service channel"
+                it.description = "Service channel"
                 it.enableLights(true)
                 it.lightColor = Color.RED
                 it.enableVibration(true)
                 it.vibrationPattern = longArrayOf(100, 200, 300, 400, 500, 400, 300, 200, 400)
+                it.importance=NotificationManager.IMPORTANCE_HIGH
+                it.setSound(uri, audioAttributes)
                 it
             }
+
+
             notificationManager.createNotificationChannel(channel)
         }
 
@@ -149,11 +181,10 @@ class CheckForDistanceService : Service() {
         ) else Notification.Builder(this)
 
         return builder
-            .setContentTitle("CheckForDistance")
-            .setContentText("This is your favorite CheckforDistance Service working")
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.monitoring_social_distance))
             .setContentIntent(pendingIntent)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setTicker("Ticker text")
             .setPriority(Notification.PRIORITY_HIGH) // for under android 26 compatibility
             .build()
     }
@@ -167,16 +198,21 @@ class CheckForDistanceService : Service() {
          * d = 10 ^ ((TxPower - RSSI) / (10 * n))
          */
 
-        return Math.pow(10.0, (txPower  - rssi) / (10 * 2))
+        return 10.0.pow((txPower - rssi) / (10 * 2))
     }
 
     fun detectBluetoothDevices()
     {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
-        if (!bluetoothAdapter!!.isEnabled())
+        if (!bluetoothAdapter!!.isEnabled)
         {
             bluetoothAdapter!!.enable()
         }
+
+        // Register for broadcasts when a device is discovered.
+        val discFilter = IntentFilter(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)
+        // Register for broadcasts when discovery has finished
+        this.registerReceiver(discReciever, discFilter)
 
 
         // Register for broadcasts when a device is discovered.
@@ -203,104 +239,215 @@ class CheckForDistanceService : Service() {
                 // Create a new device item
                 val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE)
                 val name = intent.getStringExtra(BluetoothDevice.EXTRA_NAME)
-                Log.d("DEVICELIST info", device.name+"$rssi  $name\n")
-                val newDevice = DeviceItem(device.name, device.address, rssi.toDouble())
-                deviceItemList.add(newDevice)
 
-                // Add it to our adapter
+                val txPower = 4.0 //getTxPower(deviceName)
+                var distance = calculateDistance(rssi.toDouble(),txPower)
+                if (name !=null)
+                    Log.d("Detected Device ", name!!)
+                Log.d("Rssi",rssi.toString())
+                distance /= 1700
+                /*
+
+                if (distance <MainActivity.socialDistanceThreshold)
+                {
+                       if(myMap.containsKey(device!!.address))
+                       {
+                           var count = myMap[device!!.address]
+                           if (count != null) {
+                               count += 1
+                           }
+                           myMap.se = count
+
+
+                       }
+                }
+                 */
+                if (distance <MainActivity.socialDistanceThreshold)
+                {
+                    val uri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE
+                            + "://" + packageName + "/raw/alarm");
+                    val builder = NotificationCompat.Builder(this@CheckForDistanceService, notificationChannelId)
+                        .setSmallIcon(R.drawable.ic_notification)
+                        .setColor(resources.getColor(R.color.colorAccent))
+                        .setContentTitle("Alert")
+                        .setContentText("Please maintain enough social distance")
+                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                        .setSound(uri)
+                        // Set the intent that will fire when the user taps the notification
+                        .setAutoCancel(true)
+                        .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
+
+                    builder.setDefaults(Notification.DEFAULT_SOUND)
+
+
+                    with(NotificationManagerCompat.from(this@CheckForDistanceService)) {
+                        // notificationId is a unique int for each notification that you must define
+                        notify(12345, builder.build())
+                    }
+                    if (bluetoothAdapter!!.isDiscovering) {
+                        bluetoothAdapter!!.cancelDiscovery()
+                    }
+
+
+                }
+                else {
+
+
+                }
+
 
             }
             else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED == action)
             {
                 Log.d("DEVICELIST ", "Scanning done..")
                 Toast.makeText(context, "Scanning done..", Toast.LENGTH_SHORT).show()
-                for (deviceItem in deviceItemList)
+            }
+
+        }
+    }
+
+    private fun setupUltrasound() {
+
+        val rand = Random();
+
+        secondOffset = rand.nextInt(100)
+        thirdOffset = rand.nextInt(999)
+        uniqueId = "$firstOffset.$secondOffset.$thirdOffset"
+        audioEngineSetup();
+    }
+
+    private fun audioEngineSetup(){
+
+        CUEEngine.getInstance().setupWithAPIKey(this, API_KEY)
+        CUEEngine.getInstance().setDefaultGeneration(2)
+        CUEEngine.getInstance().setReceiverCallback( OutputListener())
+        enableListening(true)
+        CUEEngine.getInstance().isTransmittingEnabled = true
+    }
+
+
+    private fun triggerTransmission()
+    {
+        queueInput(uniqueId!!, CUETrigger.MODE_TRIGGER, false);
+    }
+
+    private fun  queueInput( input :String, mode:Int, triggerAsNumber:Boolean)
+    {
+        val result:Int;
+
+        when (mode) {
+            CUETrigger.MODE_TRIGGER ->
+                if(triggerAsNumber)
                 {
-                    val rssi = deviceItem.rssi
-                    val deviceName = deviceItem.deviceName
-                    val txPower = getTxPower(deviceName)
-                    val distance = calculateDistance(rssi,txPower!!)
-
-                    if (distance <4000)
-                    {
-                        val builder = NotificationCompat.Builder(this@CheckForDistanceService, notificationChannelId)
-                            .setSmallIcon(R.drawable.ic_notification)
-                            .setColor(getResources().getColor(R.color.colorAccent))
-                            .setContentTitle("Varna")
-                            .setContentText("Behåll tillräckligt med social avstånd")
-                            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                            // Set the intent that will fire when the user taps the notification
-                            .setAutoCancel(true)
-                            .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
-
-                        with(NotificationManagerCompat.from(this@CheckForDistanceService)) {
-                            // notificationId is a unique int for each notification that you must define
-                            notify(12345, builder.build())
-                        }
+                    val number =  input.toLong();
+                    result = CUEEngine.getInstance().queueTriggerAsNumber(number)
+                    if( result == -110 ) {
+//                        messageLayout.setError(
+//                                "Triggers as number sending is unsupported for engine generation 1" )
+                    } else if( result < 0 ) /* -120 */ {
+//                        messageLayout.setError(
+//                                "Triggers us number can not exceed 98611127" )
                     }
-
-
-
                 }
-                deviceItemList.clear()
+                else
+                {
+                    CUEEngine.getInstance().queueTrigger(input)
+                }
 
 
+        else ->{}
+
+        }
+    }
+    private fun enableListening(enable :Boolean)
+    {
+        if (enable) {
+            CUEEngine.getInstance().startListening()
+        } else {
+            CUEEngine.getInstance().stopListening()
+
+        }
+    }
+
+
+
+    inner class OutputListener : CUEReceiverCallbackInterface
+    {
+        override fun run(json :String) {
+            val model:CUETrigger = CUETrigger.parse(json)
+
+            onTriggerHeard(model)
+
+        }
+    }
+
+    fun onTriggerHeard(model :CUETrigger)
+    {
+        if(uniqueId!![0]=='7')
+        {
+            if (uniqueId.equals(model.rawIndices))
+            {
+
+
+            }
+            else
+            {
+                val builder = NotificationCompat.Builder(this@CheckForDistanceService, notificationChannelId)
+                    .setSmallIcon(R.drawable.ic_notification)
+                    .setColor(resources.getColor(R.color.colorAccent))
+                    .setContentTitle("Alert")
+                    .setContentText("Please maintain enough social distance")
+                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                    // Set the intent that will fire when the user taps the notification
+                    .setAutoCancel(true)
+                    .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
+
+                builder.setDefaults(Notification.DEFAULT_SOUND);
+
+
+                with(NotificationManagerCompat.from(this@CheckForDistanceService)) {
+                    // notificationId is a unique int for each notification that you must define
+                    notify(12345, builder.build())
+                }
 
             }
         }
     }
 
-    fun getTxPower(deviceName: String?): Double?
-    {
-        var value = devicePowerMap.get(deviceName)
-        if (value ==null)
-            return 20.0
-        else
-            return value
+    // Create a BroadcastReceiver to check if device is discoverable
+    private val discReciever: BroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+
+            val action = intent.getIntExtra("BluetoothAdapter.EXTRA_SCAN_MODE", 1)
+            if (BluetoothAdapter.SCAN_MODE_NONE == action || BluetoothAdapter.SCAN_MODE_CONNECTABLE == action) {
+                val discoverableIntent: Intent =
+                    Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                        putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 3600)
+                    }
+                startActivity(discoverableIntent)
+            }
+        }
     }
 
-    fun populateDevicePowerMap()
+    private fun checkUserLocation()
     {
-        devicePowerMap.put("Samsung Galaxy S9",20.0 )
-        devicePowerMap.put("Samsung Galaxy S8",20.0 )
-        devicePowerMap.put("Samsung Galaxy S9+",20.0 )
-        devicePowerMap.put("Samsung Galaxy S10",20.0 )
-        devicePowerMap.put("Samsung Galaxy S10+",20.0 )
-        devicePowerMap.put("Samsung Galaxy S8+",20.0 )
-        devicePowerMap.put("Samsung Galaxy S7",20.0 )
-        devicePowerMap.put("Huawei P30 Pro",20.0)
-        devicePowerMap.put("Huawei P20 Pro",20.0)
-        devicePowerMap.put("Sony Xperia Series",20.0)
-        devicePowerMap.put("Samsung Galaxy A10",20.0)
-        devicePowerMap.put("OnePlus 6",20.0)
-        devicePowerMap.put("Huawei Honor 9",20.0)
-        devicePowerMap.put("Huawei Honor 8",20.0)
-        devicePowerMap.put("Huawei Mate 20 Pro",20.0)
-        devicePowerMap.put("Xiaomi",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 10 Plus 5G",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 10 Plus",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 10 Pro",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 10 Lite",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 10 5G",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 10",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 9",20.0)
-        devicePowerMap.put("Samsung Galaxy Note FE",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 8",20.0)
-        devicePowerMap.put("Smsung Galaxy Note 5 Dual Sim",20.0)
-        devicePowerMap.put("Samsung Galaxy Note 5 Winter Edition",10.0)
-        devicePowerMap.put("Samsung Galaxy Note 5 EDGE",10.0)
-        devicePowerMap.put("Samsung Galaxy Note 5",20.0)
-        devicePowerMap.put("Samsung Galaxy C11",20.0)
-        devicePowerMap.put("Samsung Galaxy C7 2017",20.0)
-        devicePowerMap.put("Samsung Galaxy C5 Pro",20.0)
-        devicePowerMap.put("Samsung Galaxy C9 Pro",20.0)
-        devicePowerMap.put("Samsung Galaxy C5",10.0)
-        devicePowerMap.put("Galaxy J2 Core",20.0)
-        devicePowerMap.put("Samsung Galaxy S20",20.0)
-        devicePowerMap.put("Samsung Galaxy S10",20.0)
-        devicePowerMap.put("Samsung Galaxy S6",10.0)
-        devicePowerMap.put("Samsung Galaxy A",20.0)
-        devicePowerMap.put("Samsung J",20.0)
+        val wifiScanReceiver: BroadcastReceiver = object : BroadcastReceiver() {
+            @RequiresApi(Build.VERSION_CODES.M)
+            override fun onReceive(c: Context, intent: Intent) {
+                val success = intent.getBooleanExtra(
+                    WifiManager.EXTRA_RESULTS_UPDATED, false
+                )
+                isIndoor = success
+            }
+        }
+
+        val intentFilter = IntentFilter()
+        intentFilter.addAction(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION)
+        this.registerReceiver(wifiScanReceiver, intentFilter)
+        val wifiManager =
+            this.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        wifiManager.startScan();
     }
+
 
 }
