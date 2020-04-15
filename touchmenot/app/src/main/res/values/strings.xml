@@ -5,4 +5,6 @@
     <string name="monitoring_social_distance">Monitoring your social distance......</string>
     <string name="notification_title">CheckForDistance</string>
     <string name="activity_main_title">Touch Me Not !!</string>
+    <string name="social_time_limit_label">Set the social time limit(minutes)</string>
+    <string name="social_distancing_limit_label">Set the social distancing limit(mts)</string>
 </resources>

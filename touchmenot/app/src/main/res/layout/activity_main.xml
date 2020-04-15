@@ -51,7 +51,7 @@
         android:id="@+id/tv_distance_monitoring"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Set the social distancing limit(mts)"
+        android:text="@string/social_distancing_limit_label"
         app:layout_constraintBottom_toTopOf="@+id/btnStartService"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.084"
@@ -75,10 +75,9 @@
 
     <TextView
         android:id="@+id/tv_time_monitoring"
-        android:enabled="false"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Set the social time limit(minutes)"
+        android:text="@string/social_time_limit_label"
         app:layout_constraintBottom_toTopOf="@+id/btnStartService"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.082"
@@ -93,7 +92,6 @@
         android:background="@color/colorPrimary"
         android:padding="8dp"
         android:textSize="18sp"
-        android:enabled="false"
         app:layout_constraintBottom_toTopOf="@+id/btnStartService"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.432"
