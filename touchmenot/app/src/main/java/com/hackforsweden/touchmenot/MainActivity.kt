@@ -22,7 +22,6 @@ class MainActivity : AppCompatActivity() {
     companion object {
         var socialDistanceThreshold:Long = 3
         var socialTimeThreshold:Long = 1
-        var TAG = "MainActivity"
     }
 
     override fun onCreate(savedInstanceState: Bundle?)
@@ -32,14 +31,14 @@ class MainActivity : AppCompatActivity() {
         setTitle(R.string.activity_main_title)
         findViewById<Button>(R.id.btnStartService).let {
             it.setOnClickListener {
-                Log.d(TAG,"Start Service Command Issued")
+                log("Start Service Command Issued")
                 actionOnService(Actions.START)
             }
         }
 
         findViewById<Button>(R.id.btnStopService).let {
             it.setOnClickListener {
-                Log.d(TAG,"Stop Service Command Issued")
+                log("Stop Service Command Issued")
                 actionOnService(Actions.STOP)
             }
         }
@@ -129,11 +128,11 @@ class MainActivity : AppCompatActivity() {
         Intent(this, CheckForDistanceService::class.java).also {
             it.action = action.name
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Log.d(TAG,"Starting the service in >=26 Mode")
+                log("Starting the service in >=26 Mode")
                 startForegroundService(it)
                 return
             }
-            Log.d(TAG,"Starting the service in < 26 Mode")
+            log("Starting the service in < 26 Mode")
             startService(it)
         }
     }

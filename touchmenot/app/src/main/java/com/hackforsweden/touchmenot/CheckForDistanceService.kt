@@ -22,10 +22,6 @@ import kotlin.math.pow
 
 class CheckForDistanceService : Service() {
 
-    companion object{
-        private var TAG = "CheckForDistanceService"
-    }
-
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceStarted = false
     private var bluetoothAdapter: BluetoothAdapter? = null
@@ -43,16 +39,16 @@ class CheckForDistanceService : Service() {
         if (intent != null)
         {
             val action = intent.action
-            Log.d(TAG,"Service Start initiated. Using an intent with action $action")
+            log("Service Start initiated. Using an intent with action $action")
             when (action) {
                 Actions.START.name -> startService()
                 Actions.STOP.name -> stopService()
-                else -> Log.d(TAG,"This should never happen. No action in the received intent")
+                else -> log("This should never happen. No action in the received intent")
             }
         }
         else
         {
-            Log.d(TAG,"Service Received null intent")
+            log("Service Received null intent")
         }
         // by returning this we make sure the service is restarted if the system kills the service
         return START_STICKY
@@ -60,7 +56,7 @@ class CheckForDistanceService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        Log.d(TAG,"The service has been created".toUpperCase())
+        log("The service has been created".toUpperCase())
         val notification = createNotification()
         startForeground(1, notification)
     }
@@ -68,14 +64,14 @@ class CheckForDistanceService : Service() {
     override fun onDestroy()
     {
         super.onDestroy()
-        Log.d(TAG,"The service has been destroyed".toUpperCase())
+        log("The service has been destroyed".toUpperCase())
         Toast.makeText(this, "Service destroyed", Toast.LENGTH_SHORT).show()
     }
 
     private fun startService()
     {
         if (isServiceStarted) return
-        Log.d(TAG,"Starting the foreground service task")
+        log("Starting the foreground service task")
         Toast.makeText(this, "Service starting its task", Toast.LENGTH_SHORT).show()
         isServiceStarted = true
         //populateDevicePowerMap()
@@ -97,14 +93,14 @@ class CheckForDistanceService : Service() {
                 }
                 delay(15000)
             }
-            Log.d(TAG,"Service is no more started.End of the loop for the service")
+            log("Service is no more started.End of the loop for the service")
         }
 
     }
 
     private fun stopService()
     {
-        Log.d(TAG,"Stop Service Triggered. Cleaning of resources will happen now")
+        log("Stop Service Triggered. Cleaning of resources will happen now")
         Toast.makeText(this, "Service stopping", Toast.LENGTH_SHORT).show()
         try {
             wakeLock?.let {
@@ -115,7 +111,7 @@ class CheckForDistanceService : Service() {
             stopForeground(true)
             stopSelf()
         } catch (e: Exception) {
-            Log.d(TAG,"Service is being stopped without being started: ${e.message}")
+            log("Service is being stopped without being started: ${e.message}")
         }
 
 
@@ -157,7 +153,7 @@ class CheckForDistanceService : Service() {
             }
 
             notificationManager.createNotificationChannel(channel)
-            Log.d(TAG,"Created Notification Channel")
+            log("Created Notification Channel")
         }
 
         val pendingIntent: PendingIntent = Intent(this, MainActivity::class.java).let { notificationIntent ->
@@ -169,7 +165,7 @@ class CheckForDistanceService : Service() {
             notificationChannelId
         ) else Notification.Builder(this)
 
-        Log.d(TAG,"Returning the appropriate  Notification Builder")
+       log("Returning the appropriate  Notification Builder")
         return builder
             .setContentTitle(getString(R.string.notification_title))
             .setContentText(getString(R.string.monitoring_social_distance))
@@ -181,7 +177,7 @@ class CheckForDistanceService : Service() {
 
     fun calculateDistance(rssi:Double, txPower :Double ) :Double
     {
-        Log.d(TAG,"Calculating the distance")
+        log("Calculating the distance")
         /*
          * RSSI = TxPower - 10 * n * lg(d)
          * n = 2 (in free space)
@@ -192,16 +188,16 @@ class CheckForDistanceService : Service() {
         return 10.0.pow((txPower - rssi) / (10 * 2))
     }
 
-    fun detectBluetoothDevices()
+    private fun detectBluetoothDevices()
     {
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         if (bluetoothAdapter!=null) {
-            Log.d("Bluetooth Adapter","Bluetooth Adapter is not enabled")
+            log("Bluetooth Adapter is not enabled")
             if (!bluetoothAdapter!!.isEnabled)
             {
 
                 bluetoothAdapter!!.enable()
-                Log.d("Bluetooth Adapter","Bluetooth Adapter is not enabled")
+                log("Bluetooth Adapter is enabled now")
             }
 
             // Register for broadcasts when a device is discovered.
@@ -214,15 +210,15 @@ class CheckForDistanceService : Service() {
             this.registerReceiver(btReciever, filter)
 
             if (bluetoothAdapter!!.isDiscovering) {
-                Log.d(TAG,"Stop Discovery of devices if already discovering")
+                log("Stop Discovery of devices if already discovering")
                 bluetoothAdapter!!.cancelDiscovery()
             }
-            Log.d(TAG,"Fresh start discovery of devices if already discovering")
+            log("Fresh start discovery of devices if already discovering")
             bluetoothAdapter!!.startDiscovery()
         }
         else
         {
-            Log.d("Bluetooth Adapter","Bluetooth Adapter is null")
+            log("Bluetooth Adapter is null")
         }
 
     }
@@ -231,7 +227,7 @@ class CheckForDistanceService : Service() {
         override fun onReceive(context: Context, intent: Intent) {
             val action = intent.action
             if (BluetoothDevice.ACTION_FOUND == action) {
-                Log.d(TAG, "DEVICELIST Bluetooth device found\n")
+                log("DEVICELIST Bluetooth device found\n")
                 val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
                 // Create a new device item
                 val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE)
@@ -245,7 +241,7 @@ class CheckForDistanceService : Service() {
                             // Since the last time this device was detected is greater than 15 secs
                             // Stop tracking the count
                             val address = device.address
-                            Log.d(TAG,"Stop tracking count of $address since it was lastly discovered > 15 secs before")
+                            log("Stop tracking count of $address since it was lastly discovered > 15 secs before")
                             if(countMap.containsKey(device.address))
                                 countMap.remove(device.address)
                         }
@@ -256,9 +252,9 @@ class CheckForDistanceService : Service() {
                 val txPower = 4.0
                 var distance = calculateDistance(rssi.toDouble(),txPower)
                 if (name !=null)
-                    Log.d("Detected Device ", name!!)
-                Log.d(TAG,"Rssi $rssi")
-                Log.d(TAG, "Distance Measured $distance")
+                    log("Detected Device $name")
+                log("Rssi $rssi")
+                log("Distance Measured $distance")
                 distance /= 1700
 
                 if (device != null) {
@@ -271,22 +267,16 @@ class CheckForDistanceService : Service() {
                                 count += 1
                             }
                             val address = device.address
-                            Log.d(
-                                TAG,
-                                "Increment the  count of $address  by 1. The new count is $count"
-                            )
+                            log("Increment the  count of $address  by 1. The new count is $count")
                             countMap[device.address] = count!!
-                            Log.d(TAG, "Device: $device.address Count: $count")
+                            log( "Device: $device.address Count: $count")
                         } else {
                             countMap[device.address] = 1
-                            Log.d(TAG, "Newly discovered Device: $device.address Count: 1")
+                            log("Newly discovered Device: $device.address Count: 1")
                         }
 
                     } else {
-                        Log.d(
-                            TAG,
-                            "This device " + device?.address + " is obeying social distancing so stop tracking its count"
-                        )
+                        log("This device " + device?.address + " is obeying social distancing so stop tracking its count")
                         if (countMap.containsKey(device!!.address)) {
                             countMap.remove(device.address)
                         }
@@ -297,7 +287,7 @@ class CheckForDistanceService : Service() {
                 {
                     if (value >= MainActivity.socialTimeThreshold * 4) {
 
-                        Log.d(TAG, "This device "+device?.address+" has breached social distance for social distancing time "+MainActivity.socialTimeThreshold + " minutes. Issuing notification")
+                        log("This device "+device?.address+" has breached social distance for social distancing time "+MainActivity.socialTimeThreshold + " minutes. Issuing notification")
                         val uri = Uri.parse(
                             ContentResolver.SCHEME_ANDROID_RESOURCE
                                     + "://" + packageName + "/raw/alarm"
@@ -316,7 +306,7 @@ class CheckForDistanceService : Service() {
                             .setAutoCancel(true)
                             .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
 
-                        Log.d(TAG, "Breach of  social distance. Creating Notification")
+                        log("Breach of  social distance. Creating Notification")
 
 
                         with(NotificationManagerCompat.from(this@CheckForDistanceService)) {
@@ -358,7 +348,7 @@ class CheckForDistanceService : Service() {
             }
             else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED == action)
             {
-                Log.d(TAG, "Scanning done..")
+                log("Scanning done..")
                 Toast.makeText(context, "Scanning done..", Toast.LENGTH_SHORT).show()
             }
 
