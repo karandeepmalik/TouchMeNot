@@ -10,6 +10,7 @@ import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.util.*
+import kotlin.collections.ArrayList
 
 class DbHelper(context: Context,
                factory: SQLiteDatabase.CursorFactory?) :
@@ -31,11 +32,25 @@ class DbHelper(context: Context,
                 + HISTORY_COLUMN_MAC + " TEXT," +
                 HISTORY_COLUMN_DAY + " INTEGER " + ")")
         db.execSQL(historyTable)
+
+        val deviceExceptionTable = ("CREATE TABLE " +
+                DEVICES_TABLE_NAME + "("
+                + DEVICE_COLUMN_NAME + " TEXT," +
+
+                DEVICE_COLUMN_ID + " TEXT " + ")")
+        db.execSQL(deviceExceptionTable)
+
+        val uniqueDeviceId = ("CREATE UNIQUE INDEX id_deviceid ON $DEVICES_TABLE_NAME ($DEVICE_COLUMN_ID)")
+
+        db.execSQL(uniqueDeviceId)
+
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         db.execSQL("DROP TABLE IF EXISTS $LOG_TABLE_NAME")
         db.execSQL("DROP TABLE IF EXISTS $HISTORY_TABLE_NAME")
+        db.execSQL("DROP TABLE IF EXISTS $DEVICES_TABLE_NAME")
+
         onCreate(db)
     }
 
@@ -61,6 +76,56 @@ class DbHelper(context: Context,
         db.close()
     }
 
+    fun addDeviceId(deviceId: String?,deviceName:String?) {
+        val values = ContentValues()
+
+        values.put(DEVICE_COLUMN_NAME, deviceName)
+
+        values.put(DEVICE_COLUMN_ID, deviceId)
+
+        val db = this.writableDatabase
+        db.insert(DEVICES_TABLE_NAME, null, values)
+        db.close()
+    }
+
+    fun getAllDevices(listitem:ArrayList<DeviceListItem>?) {
+        val db = this.readableDatabase
+        val cursor =db.rawQuery("SELECT * FROM $DEVICES_TABLE_NAME", null)
+
+        cursor!!.moveToFirst()
+        while (cursor.moveToNext()) {
+
+            listitem?.add(DeviceListItem(cursor.getString(cursor.getColumnIndex(DEVICE_COLUMN_NAME)),cursor.getString(cursor.getColumnIndex(
+                DEVICE_COLUMN_ID)),true))
+        }
+
+        cursor.close()
+
+    }
+
+     fun deleteDeviceId(deviceId:String?){
+        val db = this.writableDatabase
+        val deleteQuery = "DELETE from $DEVICES_TABLE_NAME where $DEVICE_COLUMN_ID ='$deviceId'"
+        try {
+            db.execSQL(deleteQuery)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun checkDeviceIdExist(deviceId: String):Boolean {
+        val db = this.readableDatabase
+        val cursor =db.rawQuery("SELECT EXISTS(SELECT 1 FROM $DEVICES_TABLE_NAME WHERE $DEVICE_COLUMN_ID = '$deviceId' LIMIT 1)", null)
+         cursor.moveToFirst()
+        return if (cursor.getInt(0) == 1) {
+            cursor.close()
+            true
+        } else {
+            cursor.close()
+            false
+        }
+
+    }
 
     fun getLogFile(logFile: File) {
         val db = this.readableDatabase
@@ -106,11 +171,16 @@ class DbHelper(context: Context,
         private const val DATABASE_NAME = "socialdistancelogs.db"
         const val LOG_TABLE_NAME = "logtable"
         const val HISTORY_TABLE_NAME = "historytable"
+        const val DEVICES_TABLE_NAME = "devicestable"
+
         const val LOG_COLUMN_TIME = "time"
         const val LOG_COLUMN_TIMEFORMAT = "timeformatted"
         const val LOG_COLUMN_LOG_VALUE = "logvalue"
         const val HISTORY_COLUMN_MAC = "macaddress"
         const val HISTORY_COLUMN_DAY = "day"
+        const val DEVICE_COLUMN_ID = "deviceid"
+        const val DEVICE_COLUMN_NAME = "devicename"
+
 
         private var instance: DbHelper? = null
         fun getInstance(context: Context): DbHelper

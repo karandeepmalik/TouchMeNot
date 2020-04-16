@@ -11,6 +11,8 @@ import android.os.Environment
 import android.os.StrictMode
 import android.text.Html
 import android.text.method.LinkMovementMethod
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.*
 import android.widget.AdapterView.OnItemSelectedListener
@@ -21,7 +23,7 @@ import androidx.core.content.ContextCompat
 import org.jetbrains.anko.doAsync
 import org.jetbrains.anko.uiThread
 import java.io.File
-import java.lang.Exception
+
 
 class MainActivity : AppCompatActivity() {
 
@@ -30,8 +32,7 @@ class MainActivity : AppCompatActivity() {
         var socialTimeThreshold:Long = 1
     }
 
-    override fun onCreate(savedInstanceState: Bundle?)
-    {
+    override fun onCreate(savedInstanceState: Bundle?) {
         try {
 
 
@@ -40,8 +41,7 @@ class MainActivity : AppCompatActivity() {
             setTitle(R.string.activity_main_title)
             val builder = StrictMode.VmPolicy.Builder()
             StrictMode.setVmPolicy(builder.build())
-            val mediaStorageDir =
-                File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "TouchMeNotLogs")
+
 
             findViewById<Button>(R.id.btnStartService).let {
                 it.setOnClickListener {
@@ -58,78 +58,85 @@ class MainActivity : AppCompatActivity() {
             }
 
 
-       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-       {  // Only ask for these permissions on runtime when running Android 6.0 or higher
-            when (ContextCompat.checkSelfPermission(
-                baseContext,
-                Manifest.permission.ACCESS_COARSE_LOCATION))
-            {
-                PackageManager.PERMISSION_DENIED -> (AlertDialog.Builder(this)
-                    .setTitle("Runtime Permissions up ahead")
-                    .setMessage(Html.fromHtml("<p>To find nearby bluetooth devices please click \"Allow\" on the runtime permissions popup.</p>" + "<p>For more info see <a href=\"http://developer.android.com/about/versions/marshmallow/android-6.0-changes.html#behavior-hardware-id\">here</a>.</p>"))
-                    .setNeutralButton("Okay") { _, _ ->
-                        if (ContextCompat.checkSelfPermission(
-                                baseContext,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            ActivityCompat.requestPermissions(
-                                this@MainActivity,
-                                arrayOf(Manifest.permission.ACCESS_COARSE_LOCATION),
-                                1
-                            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {  // Only ask for these permissions on runtime when running Android 6.0 or higher
+                when (ContextCompat.checkSelfPermission(
+                    baseContext,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                )) {
+                    PackageManager.PERMISSION_DENIED -> (AlertDialog.Builder(this)
+                        .setTitle("Runtime Permissions up ahead")
+                        .setMessage(Html.fromHtml("<p>To find nearby bluetooth devices please click \"Allow\" on the runtime permissions popup.</p>" + "<p>For more info see <a href=\"http://developer.android.com/about/versions/marshmallow/android-6.0-changes.html#behavior-hardware-id\">here</a>.</p>"))
+                        .setNeutralButton("Okay") { _, _ ->
+                            if (ContextCompat.checkSelfPermission(
+                                    baseContext,
+                                    Manifest.permission.ACCESS_FINE_LOCATION
+                                ) != PackageManager.PERMISSION_GRANTED
+                            ) {
+                                ActivityCompat.requestPermissions(
+                                    this@MainActivity,
+                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                                    1
+                                )
+                            }
                         }
+                        .show()
+                        .findViewById<View>(android.R.id.message) as TextView).movementMethod =
+                        LinkMovementMethod.getInstance()       // Make the link clickable. Needs to be called after show(), in order to generate hyperlinks
+                    PackageManager.PERMISSION_GRANTED -> {
                     }
-                    .show()
-                    .findViewById<View>(android.R.id.message) as TextView).movementMethod =
-                    LinkMovementMethod.getInstance()       // Make the link clickable. Needs to be called after show(), in order to generate hyperlinks
-                PackageManager.PERMISSION_GRANTED -> {
                 }
+
             }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    if (ContextCompat.checkSelfPermission(
+                            baseContext,
+                            Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                        )
+                        != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        ActivityCompat.requestPermissions(
+                            this@MainActivity,
+                            arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                            13
+                        )
+                    }
 
-            if (ContextCompat.checkSelfPermission(
-                   baseContext,
-                   Manifest.permission.RECORD_AUDIO
-               ) != PackageManager.PERMISSION_GRANTED) {
-               ActivityCompat.requestPermissions(
-                   this@MainActivity,
-                   arrayOf(Manifest.permission.RECORD_AUDIO),
-                   12)
-               }
-           }
+                }
 
-        val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 3600) }
-            startActivity(discoverableIntent)
+            val discoverableIntent: Intent =
+                    Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                        putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 3600)
+                    }
+                startActivity(discoverableIntent)
 
             val spinnerDistance =
-                findViewById<View>(R.id.sp_distance_monitoring) as Spinner
+                    findViewById<View>(R.id.sp_distance_monitoring) as Spinner
 
-            // Create an ArrayAdapter using the string array and a default spinner layout
+                // Create an ArrayAdapter using the string array and a default spinner layout
             val distanceAdapter = ArrayAdapter.createFromResource(
-                this,
-                R.array.distance_array, android.R.layout.simple_spinner_item
-            )
+                    this,
+                    R.array.distance_array, android.R.layout.simple_spinner_item
+                )
 
-            // Specify the layout to use when the list of choices appears
+                // Specify the layout to use when the list of choices appears
             distanceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
 
-            // Apply the adapter to the spinner
+                // Apply the adapter to the spinner
             spinnerDistance.adapter = distanceAdapter
             spinnerDistance.onItemSelectedListener = object : OnItemSelectedListener {
-                override fun onItemSelected(
-                    parentView: AdapterView<*>,
-                    selectedItemView: View,
-                    position: Int,
-                    id: Long
-                ) {
-                    socialDistanceThreshold =
-                        parentView.getItemAtPosition(position).toString().toLong()
-                }
+                    override fun onItemSelected(
+                        parentView: AdapterView<*>,
+                        selectedItemView: View,
+                        position: Int,
+                        id: Long
+                    ) {
+                        socialDistanceThreshold =
+                            parentView.getItemAtPosition(position).toString().toLong()
+                    }
 
-                override fun onNothingSelected(parentView: AdapterView<*>?) {
+                    override fun onNothingSelected(parentView: AdapterView<*>?) {
+                    }
                 }
-            }
 
 
             val spinnerTime =
@@ -157,38 +164,17 @@ class MainActivity : AppCompatActivity() {
                         parentView.getItemAtPosition(position).toString().toLong()
                 }
 
-                override fun onNothingSelected(parentView: AdapterView<*>?) {
-                }
-            }
-
-            findViewById<Button>(R.id.btnSendLogs).let {
-                it.setOnClickListener {
-
-                    if (mediaStorageDir.exists() || !mediaStorageDir.mkdirs()) {
-                        val gpxfile = File(mediaStorageDir, "logfile.txt")
-
-                        doAsync {
-                            // do your background thread task
-                            DbHelper.getInstance(applicationContext).getLogFile(gpxfile)
-
-                            uiThread {
-                                // use result here if you want to update ui
-                                sendMail(mediaStorageDir.absolutePath)
-                            }
-                        }
-                    }
-
-                }
+                override fun onNothingSelected(parentView: AdapterView<*>?) {}
             }
 
 
         }
-        catch (exc :Exception)
+        catch(exc :Exception)
         {
-            log(exc.message +"\n"+ exc.stackTrace , this)
+            log(exc.message + "\n" + exc.stackTrace, this)
         }
-    }
 
+    }
     private fun actionOnService(action: Actions) {
         Intent(this, CheckForDistanceService::class.java).also {
             it.action = action.name
@@ -202,20 +188,64 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendMail(path:String?){
-        val fileLocation = File(path, "logfile.txt")
-        val filePath = Uri.fromFile(fileLocation)
-        val emailIntent = Intent(Intent.ACTION_SEND)
-        // set the type to 'email'
-        emailIntent.type = "vnd.android.cursor.dir/email"
-        val to = arrayOf("ppdlteamrx@gmail.com")
-        emailIntent.putExtra(Intent.EXTRA_EMAIL, to)
-        // the attachment
-        emailIntent.putExtra(Intent.EXTRA_STREAM, filePath)
-        // the mail subject
-        emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Reporting Log File")
-        startActivity(Intent.createChooser(emailIntent, "Send email..."))
+    private fun sendMail()
+    {
+        val mediaStorageDir =
+            File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "TouchMeNotLogs")
+        if (mediaStorageDir.exists() || !mediaStorageDir.mkdirs()) {
+            val gpxfile = File(mediaStorageDir, "logfile.txt")
+
+            doAsync {
+                // do your background thread task
+                DbHelper.getInstance(applicationContext).getLogFile(gpxfile)
+
+                uiThread {
+                    // use result here if you want to update ui
+                    val fileLocation = File(mediaStorageDir.absolutePath, "logfile.txt")
+                    val filePath = Uri.fromFile(fileLocation)
+                    val emailIntent = Intent(Intent.ACTION_SEND)
+                    // set the type to 'email'
+                    emailIntent.type = "vnd.android.cursor.dir/email"
+                    val to = arrayOf("ppdlteamrx@gmail.com")
+                    emailIntent.putExtra(Intent.EXTRA_EMAIL, to)
+                    // the attachment
+                    emailIntent.putExtra(Intent.EXTRA_STREAM, filePath)
+                    // the mail subject
+                    emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Reporting Log File")
+                    startActivity(Intent.createChooser(emailIntent, "Send email..."))
+                }
+            }
+        }
+
     }
 
+    override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
+        R.id.action_send_logs -> { sendMail()
+            // User chose the "Settings" item, show the app settings UI...
+            true
+        }
+
+        R.id.action_device_exclusions-> {
+            Intent(this, BluetoothScannedDevices::class.java).also {
+
+                startActivity(it)}
+
+            // User chose the "Favorite" action, mark the current item
+            // as a favorite...
+            true
+        }
+
+        else -> {
+            // If we got here, the user's action was not recognized.
+            // Invoke the superclass to handle it.
+            super.onOptionsItemSelected(item)
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        val inflater = menuInflater
+        inflater.inflate(R.menu.menu, menu)
+        return super.onCreateOptionsMenu(menu)
+    }
 
 }

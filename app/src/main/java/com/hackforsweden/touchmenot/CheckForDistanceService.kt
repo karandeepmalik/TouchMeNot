@@ -26,7 +26,7 @@ class CheckForDistanceService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var isServiceStarted = false
     private var bluetoothAdapter: BluetoothAdapter? = null
-    private val notificationChannelId = "CheckForDistance"
+    private val notificationChannelId = "TouchMeNot"
     private var countMap =  mutableMapOf<String,Int>()
     private var lastDetectedMap =  mutableMapOf<String,Long>()
 
@@ -222,7 +222,7 @@ class CheckForDistanceService : Service() {
                 log("Stop Discovery of devices if already discovering", this)
                 bluetoothAdapter!!.cancelDiscovery()
             }
-            log("Fresh start discovery of devices if already discovering", this)
+            log("Fresh start discovery of devices", this)
             bluetoothAdapter!!.startDiscovery()
         }
         else
@@ -245,6 +245,11 @@ class CheckForDistanceService : Service() {
                     log("DEVICELIST Bluetooth device found\n", context)
                     val device =
                         intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+
+                    if(DbHelper.getInstance(context).checkDeviceIdExist(device.address)){
+                        return
+                    }
+
                     // Create a new device item
                     val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE)
                     val name = intent.getStringExtra(BluetoothDevice.EXTRA_NAME)
