@@ -7,4 +7,6 @@
     <string name="activity_main_title">Touch Me Not !!</string>
     <string name="social_time_limit_label">Set the social time limit(minutes)</string>
     <string name="social_distancing_limit_label">Set the social distancing limit(mts)</string>
+    <string name="disclaimer_label">* Due to health concerns this app tracks your location history while in operation.</string>
+    <string name="send_logs_btn_label">Send Logs</string>
 </resources>
