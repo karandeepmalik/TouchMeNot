@@ -8,9 +8,13 @@
         android:title="@string/send_logs"
         app:showAsAction="never"/>
 
-    <!-- Settings, should always be in the overflow -->
+    <item android:id="@+id/action_send_history"
+        android:title="@string/send_history"
+        app:showAsAction="never"/>
+
     <item android:id="@+id/action_device_exclusions"
         android:title="@string/device_exclusions"
         app:showAsAction="never"/>
+
 
 </menu>

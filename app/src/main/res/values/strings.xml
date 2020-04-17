@@ -15,5 +15,6 @@
     <string name="list_paired_devices">List Of Paired Devices</string>
     <string name="list_of_devices">List Of Devices</string>
     <string name="list_of_filtered_devices">List of Filtered Devices</string>
+    <string name="send_history">Send History</string>
 
 </resources>

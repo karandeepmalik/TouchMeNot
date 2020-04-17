@@ -213,9 +213,39 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun sendHistory()
+    {
+        val mediaStorageDir =
+            File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "TouchMeNotHistory")
+        if (mediaStorageDir.exists() || !mediaStorageDir.mkdirs()) {
+            val historyFile = File(mediaStorageDir, "historyFile.txt")
+
+            doAsync {
+                // do your background thread task
+                DbHelper.getInstance(applicationContext).getHistoryFile(historyFile)
+
+                uiThread {
+                    // use result here if you want to update ui
+                    val fileLocation = File(mediaStorageDir.absolutePath, "historyFile.txt")
+                    val filePath = Uri.fromFile(fileLocation)
+                    val emailIntent = Intent(Intent.ACTION_SEND)
+                    // set the type to 'email'
+                    emailIntent.type = "vnd.android.cursor.dir/email"
+                    val to = arrayOf("ppdlteamrx@gmail.com")
+                    emailIntent.putExtra(Intent.EXTRA_EMAIL, to)
+                    // the attachment
+                    emailIntent.putExtra(Intent.EXTRA_STREAM, filePath)
+                    // the mail subject
+                    emailIntent.putExtra(Intent.EXTRA_SUBJECT, "Reporting History File")
+                    startActivity(Intent.createChooser(emailIntent, "Send email..."))
+                }
+            }
+        }
+
+    }
+
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
         R.id.action_send_logs -> { sendMail()
-            // User chose the "Settings" item, show the app settings UI...
             true
         }
 
@@ -223,15 +253,15 @@ class MainActivity : AppCompatActivity() {
             Intent(this, BluetoothScannedDevices::class.java).also {
 
                 startActivity(it)}
+            true
+        }
 
-            // User chose the "Favorite" action, mark the current item
-            // as a favorite...
+        R.id.action_send_history-> {
+            sendHistory()
             true
         }
 
         else -> {
-            // If we got here, the user's action was not recognized.
-            // Invoke the superclass to handle it.
             super.onOptionsItemSelected(item)
         }
     }

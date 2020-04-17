@@ -28,7 +28,8 @@ class DbHelper(context: Context,
         val historyTable = ("CREATE TABLE " +
                 HISTORY_TABLE_NAME + "("
                 + HISTORY_COLUMN_MAC + " TEXT," +
-                HISTORY_COLUMN_DAY + " INTEGER " + ")")
+                HISTORY_COLUMN_DAY + " INTEGER," +
+                HISTORY_COLUMN_MONTH + " TEXT " +  ")")
         db.execSQL(historyTable)
 
         val deviceExceptionTable = ("CREATE TABLE " +
@@ -67,8 +68,10 @@ class DbHelper(context: Context,
     fun addHistory(macAddress: String) {
         val values = ContentValues()
         val currentDate: String = SimpleDateFormat("dd", Locale.getDefault()).format(Date())
+        val currentMonth: String = SimpleDateFormat("MMM", Locale.getDefault()).format(Date())
         values.put(HISTORY_COLUMN_MAC, macAddress)
         values.put(HISTORY_COLUMN_DAY,currentDate.toInt())
+        values.put(HISTORY_COLUMN_MONTH,currentMonth)
         val db = this.writableDatabase
         db.insert(HISTORY_TABLE_NAME, null, values)
         db.close()
@@ -183,6 +186,30 @@ class DbHelper(context: Context,
         deleteAllLogs()
      }
 
+
+    fun getHistoryFile(historyFile: File) {
+        val db = this.readableDatabase
+        val cursor =db.rawQuery("SELECT * FROM $HISTORY_TABLE_NAME", null)
+        val writer = FileWriter(historyFile)
+        val myDeviceModel = Build.MODEL
+        val myDeviceManufacturer = Build.MANUFACTURER
+        val myOS = Build.VERSION.RELEASE
+        writer.append("Device Model : $myDeviceModel \n")
+        writer.append("Device Manufacturer  : $myDeviceManufacturer \n")
+        writer.append("Device OS  : $myOS \n")
+        cursor!!.moveToFirst()
+        while (!cursor.isAfterLast)
+        {
+            writer.append(cursor.getString(cursor.getColumnIndex(HISTORY_COLUMN_MAC))+" : "+cursor.getString(cursor.getColumnIndex(
+                        HISTORY_COLUMN_DAY))+"-"+cursor.getString(cursor.getColumnIndex( HISTORY_COLUMN_MONTH)))
+            writer.append("\n\r")
+            cursor.moveToNext()
+        }
+        writer.flush()
+        writer.close()
+        cursor.close()
+    }
+
     private fun deleteAllLogs(){
         val db = this.writableDatabase
         val deleteQuery = "DELETE from $LOG_TABLE_NAME"
@@ -205,6 +232,7 @@ class DbHelper(context: Context,
         const val LOG_COLUMN_LOG_VALUE = "logvalue"
         const val HISTORY_COLUMN_MAC = "macaddress"
         const val HISTORY_COLUMN_DAY = "day"
+        const val HISTORY_COLUMN_MONTH = "month"
         const val DEVICE_COLUMN_ID = "deviceid"
         const val DEVICE_COLUMN_NAME = "devicename"
 
