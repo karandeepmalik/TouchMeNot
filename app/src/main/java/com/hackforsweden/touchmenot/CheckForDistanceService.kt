@@ -246,7 +246,9 @@ class CheckForDistanceService : Service() {
                     val device =
                         intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
 
-                    if(DbHelper.getInstance(context).checkDeviceIdExist(device.address)){
+                    // Do not take any action if this is a device from filtered list
+                    if(DbHelper.getInstance(context).checkDeviceIdExist(device!!.address)){
+                        log("Filtered Device Encountered :- "+device.address, context)
                         return
                     }
 
@@ -360,31 +362,6 @@ class CheckForDistanceService : Service() {
 
                     }
 
-
-                    /*  if (distance <MainActivity.socialDistanceThreshold)
-                {
-                    val uri = Uri.parse(ContentResolver.SCHEME_ANDROID_RESOURCE
-                            + "://" + packageName + "/raw/alarm");
-                    val builder = NotificationCompat.Builder(this@CheckForDistanceService, notificationChannelId)
-                        .setSmallIcon(R.drawable.ic_notification)
-                        .setColor(resources.getColor(R.color.colorAccent))
-                        .setContentTitle("Alert")
-                        .setContentText("Please maintain enough social distance")
-                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                        .setSound(uri)
-                        // Set the intent that will fire when the user taps the notification
-                        .setAutoCancel(true)
-                        .setVibrate(longArrayOf(1000, 1000, 1000, 1000, 1000))
-
-                    Log.d(TAG, "Breach of  social distance. Creating Notification")
-
-
-                    with(NotificationManagerCompat.from(this@CheckForDistanceService)) {
-                        // notificationId is a unique int for each notification that you must define
-                        notify(12345, builder.build())
-                    }
-
-                }*/
 
                 } else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED == action) {
                     log("Scanning done..", context)

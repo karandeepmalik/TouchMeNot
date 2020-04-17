@@ -8,9 +8,7 @@ import android.os.Build
 import java.io.File
 import java.io.FileWriter
 import java.text.SimpleDateFormat
-import java.time.format.DateTimeFormatter
 import java.util.*
-import kotlin.collections.ArrayList
 
 class DbHelper(context: Context,
                factory: SQLiteDatabase.CursorFactory?) :
@@ -88,15 +86,34 @@ class DbHelper(context: Context,
         db.close()
     }
 
-    fun getAllDevices(listitem:ArrayList<DeviceListItem>?) {
+    fun getAllDevices(listitem:ArrayList<DeviceListItem>?,deviceIdSet:MutableSet<String?>?) {
         val db = this.readableDatabase
         val cursor =db.rawQuery("SELECT * FROM $DEVICES_TABLE_NAME", null)
 
-        cursor!!.moveToFirst()
-        while (cursor.moveToNext()) {
 
-            listitem?.add(DeviceListItem(cursor.getString(cursor.getColumnIndex(DEVICE_COLUMN_NAME)),cursor.getString(cursor.getColumnIndex(
-                DEVICE_COLUMN_ID)),true))
+        cursor.moveToFirst()
+        while (!cursor.isAfterLast)
+        {
+            deviceIdSet?.add(
+                cursor.getString(
+                    cursor.getColumnIndex(
+                        DEVICE_COLUMN_ID
+                    )
+                )
+            )
+            listitem?.add(
+                DeviceListItem(
+                    cursor.getString(cursor.getColumnIndex(DEVICE_COLUMN_NAME)),
+                    cursor.getString(
+                        cursor.getColumnIndex(
+                            DEVICE_COLUMN_ID
+                        )
+                    ),
+                    true
+                )
+            )
+
+            cursor.moveToNext()
         }
 
         cursor.close()
@@ -106,6 +123,16 @@ class DbHelper(context: Context,
      fun deleteDeviceId(deviceId:String?){
         val db = this.writableDatabase
         val deleteQuery = "DELETE from $DEVICES_TABLE_NAME where $DEVICE_COLUMN_ID ='$deviceId'"
+        try {
+            db.execSQL(deleteQuery)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+     fun deleteAllDeviceId(){
+        val db = this.writableDatabase
+        val deleteQuery = "DELETE from $DEVICES_TABLE_NAME"
         try {
             db.execSQL(deleteQuery)
         } catch (e: Exception) {

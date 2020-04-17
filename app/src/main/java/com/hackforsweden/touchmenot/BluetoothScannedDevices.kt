@@ -1,4 +1,5 @@
 package com.hackforsweden.touchmenot
+
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.content.BroadcastReceiver
@@ -6,8 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Bundle
-import android.view.*
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.ListView
+import androidx.appcompat.app.ActionBar
 import androidx.appcompat.app.AppCompatActivity
 
 
@@ -16,18 +19,32 @@ class BluetoothScannedDevices : AppCompatActivity() {
 
     var mBluetoothAdapter: BluetoothAdapter? = null
     var scannedDevicesListView: ListView? = null
+    var filteredDevicesListView: ListView? = null
     var detectedDevices: ArrayList<DeviceListItem>? = null
-    var scannedDeviceListAdapter: ScannedDeviceListAdapter? = null
+    var filteredDevices: ArrayList<DeviceListItem>? = null
+    var filteredDevicesSet:MutableSet<String?>? = null
 
+    companion object {
+        var filteredDevicesListAdapter: FilteredDeviceListAdapter? = null
+        var scannedDeviceListAdapter: ScannedDeviceListAdapter? = null
+
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_bluetooth_scanned_devices)
+
+        val ab: ActionBar? = supportActionBar
+        ab!!.setDisplayHomeAsUpEnabled(true)
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
 
         scannedDevicesListView = findViewById(R.id.lv_scan_devices)
-        detectedDevices = ArrayList<DeviceListItem>()
+        filteredDevicesListView = findViewById(R.id.lv_filtered_devices)
 
+        detectedDevices = ArrayList<DeviceListItem>()
+        filteredDevices= ArrayList<DeviceListItem>()
+
+         setUpFilteredDevices()
 
     }
 
@@ -44,7 +61,7 @@ class BluetoothScannedDevices : AppCompatActivity() {
 
         detectedDevices?.clear()
 
-        scannedDeviceListAdapter = ScannedDeviceListAdapter(
+        scannedDeviceListAdapter = ScannedDeviceListAdapter(filteredDevicesSet,
              this,
             detectedDevices!!
         )
@@ -63,14 +80,25 @@ class BluetoothScannedDevices : AppCompatActivity() {
     }
 
     private fun setUpRemoveDevices() {
-        detectedDevices?.clear()
 
-        DbHelper.getInstance(this).getAllDevices(detectedDevices)
-        scannedDeviceListAdapter = ScannedDeviceListAdapter(
+        filteredDevices?.clear()
+        filteredDevicesSet?.clear()
+        DbHelper.getInstance(this).deleteAllDeviceId()
+        filteredDevicesListAdapter?.notifyDataSetChanged()
+        scannedDeviceListAdapter?.notifyDataSetChanged()
+
+    }
+
+    private fun setUpFilteredDevices() {
+        filteredDevices?.clear()
+         filteredDevicesSet = mutableSetOf<String?>();
+
+         DbHelper.getInstance(this).getAllDevices(filteredDevices,filteredDevicesSet)
+        filteredDevicesListAdapter = FilteredDeviceListAdapter(filteredDevicesSet,
             this,
-            detectedDevices!!
+            filteredDevices!!
         )
-        scannedDevicesListView?.adapter = scannedDeviceListAdapter
+        filteredDevicesListView?.adapter = filteredDevicesListAdapter
 
     }
 
@@ -91,7 +119,7 @@ class BluetoothScannedDevices : AppCompatActivity() {
 
         }
 
-        scannedDeviceListAdapter = ScannedDeviceListAdapter(
+        scannedDeviceListAdapter = ScannedDeviceListAdapter(filteredDevicesSet,
              this,
             detectedDevices!!
         )

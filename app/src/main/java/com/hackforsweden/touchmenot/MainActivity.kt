@@ -103,12 +103,6 @@ class MainActivity : AppCompatActivity() {
 
                 }
 
-            val discoverableIntent: Intent =
-                    Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                        putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 3600)
-                    }
-                startActivity(discoverableIntent)
-
             val spinnerDistance =
                     findViewById<View>(R.id.sp_distance_monitoring) as Spinner
 

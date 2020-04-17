@@ -1,2 +1,2 @@
-include ':app', ':engine'
+include ':app'
 rootProject.name='touchmenot'

@@ -29,11 +29,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".BluetoothScannedDevices"></activity>
+        <activity android:name=".BluetoothScannedDevices"
+            android:parentActivityName=".MainActivity" />
         <service
             android:name=".CheckForDistanceService"
             android:enabled="true"
-            android:exported="false"></service>
+            android:exported="false"/>
     </application>
 
 </manifest>
