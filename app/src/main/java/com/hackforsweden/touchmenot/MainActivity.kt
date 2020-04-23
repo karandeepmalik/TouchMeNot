@@ -20,6 +20,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.crashlytics.android.Crashlytics
 import org.jetbrains.anko.doAsync
 import org.jetbrains.anko.uiThread
 import java.io.File
@@ -33,141 +34,190 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        try {
 
-
-            super.onCreate(savedInstanceState)
-            setContentView(R.layout.activity_main)
-            setTitle(R.string.activity_main_title)
-            val builder = StrictMode.VmPolicy.Builder()
-            StrictMode.setVmPolicy(builder.build())
-
-
-            findViewById<Button>(R.id.btnStartService).let {
-                it.setOnClickListener {
-                    log("Start Service Command Issued", this)
-                    actionOnService(Actions.START)
-                }
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        setTitle(R.string.activity_main_title)
+        val builder = StrictMode.VmPolicy.Builder()
+        StrictMode.setVmPolicy(builder.build())
+        findViewById<Button>(R.id.btnStartService).let {
+            it.setOnClickListener {
+                log("Start Service Command Issued", this)
+                actionOnService(Actions.START)
             }
+        }
 
-            findViewById<Button>(R.id.btnStopService).let {
-                it.setOnClickListener {
-                    log("Stop Service Command Issued", this)
-                    actionOnService(Actions.STOP)
-                }
+        findViewById<Button>(R.id.btnStopService).let {
+            it.setOnClickListener {
+                log("Stop Service Command Issued", this)
+                actionOnService(Actions.STOP)
             }
+        }
 
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {  // Only ask for these permissions on runtime when running Android 6.0 or higher
-                when (ContextCompat.checkSelfPermission(
-                    baseContext,
-                    Manifest.permission.ACCESS_FINE_LOCATION
-                )) {
-                    PackageManager.PERMISSION_DENIED -> (AlertDialog.Builder(this)
-                        .setTitle("Runtime Permissions up ahead")
-                        .setMessage(Html.fromHtml("<p>To find nearby bluetooth devices please click \"Allow\" on the runtime permissions popup.</p>" + "<p>For more info see <a href=\"http://developer.android.com/about/versions/marshmallow/android-6.0-changes.html#behavior-hardware-id\">here</a>.</p>"))
-                        .setNeutralButton("Okay") { _, _ ->
-                            if (ContextCompat.checkSelfPermission(
-                                    baseContext,
-                                    Manifest.permission.ACCESS_FINE_LOCATION
-                                ) != PackageManager.PERMISSION_GRANTED
-                            ) {
-                                ActivityCompat.requestPermissions(
-                                    this@MainActivity,
-                                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                                    1
-                                )
-                            }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {  // Only ask for these permissions on runtime when running Android 6.0 or higher
+            when (ContextCompat.checkSelfPermission(
+                baseContext,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            )) {
+                PackageManager.PERMISSION_DENIED -> (AlertDialog.Builder(this)
+                    .setTitle("Runtime Permissions up ahead")
+                    .setMessage(Html.fromHtml("<p>To find nearby bluetooth devices please click \"Allow\" on the runtime permissions popup.</p>" + "<p>For more info see <a href=\"http://developer.android.com/about/versions/marshmallow/android-6.0-changes.html#behavior-hardware-id\">here</a>.</p>"))
+                    .setNeutralButton("Okay") { _, _ ->
+                        if (ContextCompat.checkSelfPermission(
+                                baseContext,
+                                Manifest.permission.ACCESS_FINE_LOCATION
+                            ) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            ActivityCompat.requestPermissions(
+                                this@MainActivity,
+                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                                1
+                            )
                         }
-                        .show()
-                        .findViewById<View>(android.R.id.message) as TextView).movementMethod =
-                        LinkMovementMethod.getInstance()       // Make the link clickable. Needs to be called after show(), in order to generate hyperlinks
-                    PackageManager.PERMISSION_GRANTED -> {
                     }
+                    .show()
+                    .findViewById<View>(android.R.id.message) as TextView).movementMethod =
+                    LinkMovementMethod.getInstance()       // Make the link clickable. Needs to be called after show(), in order to generate hyperlinks
+                PackageManager.PERMISSION_GRANTED -> {
+
+
+
+                }
+            }
+
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                if (ContextCompat.checkSelfPermission(
+                        baseContext,
+                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                    )
+                    != PackageManager.PERMISSION_GRANTED
+                ) {
+                    ActivityCompat.requestPermissions(
+                        this@MainActivity,
+                        arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                        13
+                    )
                 }
 
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    if (ContextCompat.checkSelfPermission(
-                            baseContext,
-                            Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                        )
-                        != PackageManager.PERMISSION_GRANTED
-                    ) {
-                        ActivityCompat.requestPermissions(
-                            this@MainActivity,
-                            arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
-                            13
-                        )
-                    }
 
-                }
-
-            val spinnerDistance =
-                    findViewById<View>(R.id.sp_distance_monitoring) as Spinner
-
-                // Create an ArrayAdapter using the string array and a default spinner layout
-            val distanceAdapter = ArrayAdapter.createFromResource(
-                    this,
-                    R.array.distance_array, android.R.layout.simple_spinner_item
-                )
-
-                // Specify the layout to use when the list of choices appears
-            distanceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-
-                // Apply the adapter to the spinner
-            spinnerDistance.adapter = distanceAdapter
-            spinnerDistance.onItemSelectedListener = object : OnItemSelectedListener {
-                    override fun onItemSelected(
-                        parentView: AdapterView<*>,
-                        selectedItemView: View,
-                        position: Int,
-                        id: Long
-                    ) {
-                        socialDistanceThreshold =
-                            parentView.getItemAtPosition(position).toString().toLong()
-                    }
-
-                    override fun onNothingSelected(parentView: AdapterView<*>?) {
-                    }
-                }
+        checkAudioPermission()
 
 
-            val spinnerTime =
-                findViewById<View>(R.id.sp_time_monitoring) as Spinner
+        val spinnerDistance =
+                findViewById<View>(R.id.sp_distance_monitoring) as Spinner
 
             // Create an ArrayAdapter using the string array and a default spinner layout
-            val timeAdapter = ArrayAdapter.createFromResource(
+        val distanceAdapter = ArrayAdapter.createFromResource(
                 this,
-                R.array.time_array, android.R.layout.simple_spinner_item
+                R.array.distance_array, android.R.layout.simple_spinner_item
             )
 
             // Specify the layout to use when the list of choices appears
-            timeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        distanceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
 
             // Apply the adapter to the spinner
-            spinnerTime.adapter = timeAdapter
-            spinnerTime.onItemSelectedListener = object : OnItemSelectedListener {
+        spinnerDistance.adapter = distanceAdapter
+        spinnerDistance.onItemSelectedListener = object : OnItemSelectedListener {
                 override fun onItemSelected(
                     parentView: AdapterView<*>,
                     selectedItemView: View,
                     position: Int,
                     id: Long
                 ) {
-                    socialTimeThreshold =
+                    socialDistanceThreshold =
                         parentView.getItemAtPosition(position).toString().toLong()
                 }
 
-                override fun onNothingSelected(parentView: AdapterView<*>?) {}
+                override fun onNothingSelected(parentView: AdapterView<*>?) {
+                }
             }
 
 
-        }
-        catch(exc :Exception)
-        {
-            log(exc.message + "\n" + exc.stackTrace, this)
+        val spinnerTime =
+            findViewById<View>(R.id.sp_time_monitoring) as Spinner
+
+        // Create an ArrayAdapter using the string array and a default spinner layout
+        val timeAdapter = ArrayAdapter.createFromResource(
+            this,
+            R.array.time_array, android.R.layout.simple_spinner_item
+        )
+
+        // Specify the layout to use when the list of choices appears
+        timeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+
+        // Apply the adapter to the spinner
+        spinnerTime.adapter = timeAdapter
+        spinnerTime.onItemSelectedListener = object : OnItemSelectedListener {
+            override fun onItemSelected(
+                parentView: AdapterView<*>,
+                selectedItemView: View,
+                position: Int,
+                id: Long
+            ) {
+                socialTimeThreshold =
+                    parentView.getItemAtPosition(position).toString().toLong()
+            }
+
+            override fun onNothingSelected(parentView: AdapterView<*>?) {}
         }
 
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+
+        if(requestCode== 1){
+            val permCondition =
+                grantResults.size == 1 &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED;
+
+            if(permCondition){
+                checkAudioPermission()
+            }
+
+        }else  if(requestCode== 13){
+            val permCondition =
+                grantResults.size == 1 &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED;
+
+            if(permCondition)
+            {
+            }
+
+        }
+        else if (requestCode ==12)
+        {
+            val permCondition =
+                grantResults.size == 1 &&
+                        grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if(permCondition)
+            {
+                val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
+                    putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 3600) }
+
+                startActivity(discoverableIntent)
+            }
+        }
+    }
+
+
+
+    private fun checkAudioPermission(){
+        if (ContextCompat.checkSelfPermission(
+                baseContext,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this@MainActivity,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                12)
+        }
     }
     private fun actionOnService(action: Actions) {
         Intent(this, CheckForDistanceService::class.java).also {
@@ -191,7 +241,7 @@ class MainActivity : AppCompatActivity() {
 
             doAsync {
                 // do your background thread task
-                DbHelper.getInstance(applicationContext).getLogFile(gpxfile)
+                DbHelper.instance.getLogFile(gpxfile)
 
                 uiThread {
                     // use result here if you want to update ui
@@ -222,7 +272,7 @@ class MainActivity : AppCompatActivity() {
 
             doAsync {
                 // do your background thread task
-                DbHelper.getInstance(applicationContext).getHistoryFile(historyFile)
+                DbHelper.instance.getHistoryFile(historyFile)
 
                 uiThread {
                     // use result here if you want to update ui

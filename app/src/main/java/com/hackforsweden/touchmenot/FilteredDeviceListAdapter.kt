@@ -24,12 +24,12 @@ class FilteredDeviceListAdapter(
     }
 
     override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-        val dataitem = dataList[position]
+        val dataItem = dataList[position]
 
         val rowView = inflater.inflate(R.layout.device_row, parent, false)
-        rowView.findViewById<TextView>(R.id.tvDeviceName).text = dataitem.deviceName
+        rowView.findViewById<TextView>(R.id.tvDeviceName).text = dataItem.deviceName
 
-        if(dataitem.showRemove){
+        if(dataItem.showRemove){
             rowView.findViewById<Button>(R.id.remove).visibility = View.VISIBLE
             rowView.findViewById<Button>(R.id.Add).visibility = View.GONE
         }else{
@@ -37,9 +37,9 @@ class FilteredDeviceListAdapter(
         }
 
         rowView.findViewById<Button>(R.id.remove).setOnClickListener{
-            DbHelper.getInstance(context).deleteDeviceId(dataitem.address)
+            DbHelper.instance.deleteDeviceId(dataItem.address)
             dataList.removeAt(position)
-            filteredDeviceIdSet!!.remove(dataitem.address)
+            filteredDeviceIdSet!!.remove(dataItem.address)
             BluetoothScannedDevices.scannedDeviceListAdapter?.updateScannedAdapter()
             this.notifyDataSetChanged()
 
