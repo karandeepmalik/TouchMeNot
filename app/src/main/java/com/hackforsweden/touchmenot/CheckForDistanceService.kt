@@ -402,7 +402,7 @@ class CheckForDistanceService : Service() {
                         bluetoothAdapter!!.cancelDiscovery()
                     }
                 }
-                break
+
             }
 
         }

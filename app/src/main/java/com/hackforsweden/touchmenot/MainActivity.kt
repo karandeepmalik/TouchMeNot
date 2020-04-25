@@ -20,7 +20,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.crashlytics.android.Crashlytics
 import org.jetbrains.anko.doAsync
 import org.jetbrains.anko.uiThread
 import java.io.File
@@ -40,101 +39,72 @@ class MainActivity : AppCompatActivity() {
         setTitle(R.string.activity_main_title)
         val builder = StrictMode.VmPolicy.Builder()
         StrictMode.setVmPolicy(builder.build())
+        setupMainActivityUi()
+        askForFineLocationPermission()
+        askForBackGroundLocationPermission()
+        askForRecordAudioPermission()
+
+    }
+
+    private fun setupMainActivityUi()
+    {
+        setupStartMonitoringButton()
+        setupStopMonitoringButton()
+        setupSocialTimeSpinner()
+        setupSocialDistanceSpinner()
+    }
+
+    private fun setupStartMonitoringButton()
+    {
         findViewById<Button>(R.id.btnStartService).let {
             it.setOnClickListener {
                 log("Start Service Command Issued", this)
                 actionOnService(Actions.START)
             }
         }
+    }
 
+    private fun setupStopMonitoringButton()
+    {
         findViewById<Button>(R.id.btnStopService).let {
             it.setOnClickListener {
                 log("Stop Service Command Issued", this)
                 actionOnService(Actions.STOP)
             }
         }
-
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {  // Only ask for these permissions on runtime when running Android 6.0 or higher
-            when (ContextCompat.checkSelfPermission(
-                baseContext,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )) {
-                PackageManager.PERMISSION_DENIED -> (AlertDialog.Builder(this)
-                    .setTitle("Runtime Permissions up ahead")
-                    .setMessage(Html.fromHtml("<p>To find nearby bluetooth devices please click \"Allow\" on the runtime permissions popup.</p>" + "<p>For more info see <a href=\"http://developer.android.com/about/versions/marshmallow/android-6.0-changes.html#behavior-hardware-id\">here</a>.</p>"))
-                    .setNeutralButton("Okay") { _, _ ->
-                        if (ContextCompat.checkSelfPermission(
-                                baseContext,
-                                Manifest.permission.ACCESS_FINE_LOCATION
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            ActivityCompat.requestPermissions(
-                                this@MainActivity,
-                                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                                1
-                            )
-                        }
-                    }
-                    .show()
-                    .findViewById<View>(android.R.id.message) as TextView).movementMethod =
-                    LinkMovementMethod.getInstance()       // Make the link clickable. Needs to be called after show(), in order to generate hyperlinks
-                PackageManager.PERMISSION_GRANTED -> {
-
-
-
-                }
-            }
-
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                if (ContextCompat.checkSelfPermission(
-                        baseContext,
-                        Manifest.permission.ACCESS_BACKGROUND_LOCATION
-                    )
-                    != PackageManager.PERMISSION_GRANTED
-                ) {
-                    ActivityCompat.requestPermissions(
-                        this@MainActivity,
-                        arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
-                        13
-                    )
-                }
-
-            }
-
-        checkAudioPermission()
-
-
+    }
+    private fun setupSocialDistanceSpinner() {
         val spinnerDistance =
-                findViewById<View>(R.id.sp_distance_monitoring) as Spinner
+            findViewById<View>(R.id.sp_distance_monitoring) as Spinner
 
-            // Create an ArrayAdapter using the string array and a default spinner layout
+        // Create an ArrayAdapter using the string array and a default spinner layout
         val distanceAdapter = ArrayAdapter.createFromResource(
-                this,
-                R.array.distance_array, android.R.layout.simple_spinner_item
-            )
+            this,
+            R.array.distance_array, android.R.layout.simple_spinner_item
+        )
 
-            // Specify the layout to use when the list of choices appears
+        // Specify the layout to use when the list of choices appears
         distanceAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
 
-            // Apply the adapter to the spinner
+        // Apply the adapter to the spinner
         spinnerDistance.adapter = distanceAdapter
         spinnerDistance.onItemSelectedListener = object : OnItemSelectedListener {
-                override fun onItemSelected(
-                    parentView: AdapterView<*>,
-                    selectedItemView: View,
-                    position: Int,
-                    id: Long
-                ) {
-                    socialDistanceThreshold =
-                        parentView.getItemAtPosition(position).toString().toLong()
-                }
-
-                override fun onNothingSelected(parentView: AdapterView<*>?) {
-                }
+            override fun onItemSelected(
+                parentView: AdapterView<*>,
+                selectedItemView: View,
+                position: Int,
+                id: Long
+            ) {
+                socialDistanceThreshold =
+                    parentView.getItemAtPosition(position).toString().toLong()
             }
 
+            override fun onNothingSelected(parentView: AdapterView<*>?) {
+            }
+        }
+    }
+
+    private fun setupSocialTimeSpinner(){
 
         val spinnerTime =
             findViewById<View>(R.id.sp_time_monitoring) as Spinner
@@ -163,7 +133,60 @@ class MainActivity : AppCompatActivity() {
 
             override fun onNothingSelected(parentView: AdapterView<*>?) {}
         }
+    }
 
+    private fun askForFineLocationPermission()
+    {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+        {  // Only ask for these permissions on runtime when running Android 6.0 or higher
+
+            if (ContextCompat.checkSelfPermission(
+                    baseContext,
+                    Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                    1
+                )
+            }
+        }
+    }
+
+    private fun askForBackGroundLocationPermission()
+    {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (ContextCompat.checkSelfPermission(
+                    baseContext,
+                    Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                )
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                    13
+                )
+            }
+
+        }
+    }
+
+    private fun askForRecordAudioPermission(){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+        {
+            if (ContextCompat.checkSelfPermission(
+                baseContext,
+                Manifest.permission.RECORD_AUDIO
+            ) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(
+                    this@MainActivity,
+                    arrayOf(Manifest.permission.RECORD_AUDIO),
+                    12
+                )
+            }
+        }
     }
 
     override fun onRequestPermissionsResult(
@@ -178,7 +201,7 @@ class MainActivity : AppCompatActivity() {
                 grantResults[0] == PackageManager.PERMISSION_GRANTED;
 
             if(permCondition){
-                checkAudioPermission()
+                askForRecordAudioPermission()
             }
 
         }else  if(requestCode== 13){
@@ -206,19 +229,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
-
-    private fun checkAudioPermission(){
-        if (ContextCompat.checkSelfPermission(
-                baseContext,
-                Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this@MainActivity,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
-                12)
-        }
-    }
     private fun actionOnService(action: Actions) {
         Intent(this, CheckForDistanceService::class.java).also {
             it.action = action.name
