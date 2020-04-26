@@ -10,14 +10,18 @@ import android.graphics.Color
 import android.media.AudioAttributes
 import android.net.Uri
 import android.os.*
+import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.anko.runOnUiThread
+import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.pow
 
@@ -383,7 +387,8 @@ class CheckForDistanceService : Service() {
     {
         for (detectedDevice in deviceAndSocialDistanceViolationCount)
         {
-            if ((detectedDevice.value >= MainActivity.socialTimeThreshold * 60000/bluetoothDiscoveryPeriod) ) {
+            if ((detectedDevice.value >= MainActivity.socialTimeThreshold * 60000/bluetoothDiscoveryPeriod) )
+            {
 
                 log(
                     "This device " + detectedDevice.key + " has breached social distance for social distancing time " + MainActivity.socialTimeThreshold + " minutes. Issuing notification",
@@ -393,14 +398,6 @@ class CheckForDistanceService : Service() {
                 runOnUiThread()
                 {
                     raiseAlert()
-
-                    if (bluetoothAdapter!!.isDiscovering) {
-                        log(
-                            "Stop Discovery of devices if already discovering",
-                            this@CheckForDistanceService
-                        )
-                        bluetoothAdapter!!.cancelDiscovery()
-                    }
                 }
 
             }

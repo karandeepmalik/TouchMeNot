@@ -20,9 +20,13 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.work.*
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import org.jetbrains.anko.doAsync
 import org.jetbrains.anko.uiThread
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 
 class MainActivity : AppCompatActivity() {
@@ -43,6 +47,9 @@ class MainActivity : AppCompatActivity() {
         askForFineLocationPermission()
         askForBackGroundLocationPermission()
         askForRecordAudioPermission()
+        setupHistoryUploadWorker()
+
+
 
     }
 
@@ -240,6 +247,23 @@ class MainActivity : AppCompatActivity() {
             log("Starting/Stopping the service in < 26 Mode",this)
             startService(it)
         }
+    }
+
+    private fun setupHistoryUploadWorker()
+    {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.CONNECTED)
+            .build()
+
+        val historyUploadRequest =  PeriodicWorkRequestBuilder<HistoryUploadWorker>(1, TimeUnit.DAYS)
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                BackoffPolicy.LINEAR,
+                PeriodicWorkRequest.MIN_BACKOFF_MILLIS,
+                TimeUnit.MILLISECONDS)
+            .build()
+        WorkManager.getInstance().enqueue(historyUploadRequest)
+
     }
 
     private fun sendMail()
