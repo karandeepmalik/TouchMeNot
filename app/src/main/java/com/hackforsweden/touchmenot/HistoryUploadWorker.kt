@@ -5,6 +5,7 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.hackforsweden.touchmenot.DbHelper.Companion.HISTORY_TABLE_NAME
 
 class HistoryUploadWorker(context: Context, workerParams: WorkerParameters) : Worker(context, workerParams)
 {
@@ -12,7 +13,7 @@ class HistoryUploadWorker(context: Context, workerParams: WorkerParameters) : Wo
         try
         {
             val firestoreDb  = Firebase.firestore
-            val db = DbHelper.instance.readableDatabase
+            val db = DbHelper.instance.writableDatabase
             val cursor =db.rawQuery("SELECT * FROM ${DbHelper.HISTORY_TABLE_NAME}", null)
             cursor!!.moveToFirst()
             while (!cursor.isAfterLast)
@@ -25,10 +26,11 @@ class HistoryUploadWorker(context: Context, workerParams: WorkerParameters) : Wo
                         .addOnSuccessListener { documentReference ->
                             log( "DocumentSnapshot added with ID: ${documentReference.id}",applicationContext) }
                         .addOnFailureListener { e ->
-                            log("Error adding document " +e , applicationContext) }
+                            log("Error adding document $e", applicationContext) }
                 cursor.moveToNext()
             }
             cursor.close()
+            db.delete(HISTORY_TABLE_NAME,null,null)
             return Result.success()
         }
         catch (e: Exception)
